@@ -3,6 +3,8 @@ import prisma from "../../../../packages/libs/prisma";
 import { ValidationError } from "../../../../packages/error-handler";
 import { imagekit } from "../../../../packages/libs/imagekit";
 import fs from "fs";
+import { Prisma } from "@prisma/client";
+import { start } from "repl";
 
 //get product categories
 export const getProductCategories = async (
@@ -223,6 +225,9 @@ export const createProduct = async (
       return next(new ValidationError("Seller not found"));
     }
 
+    const starting_date = req.body.starting_date || null;
+    const ending_date = req.body.ending_date || null;
+
     const slugExists = await prisma.products.findUnique({
       where: {
         slug,
@@ -233,6 +238,8 @@ export const createProduct = async (
     if (slugExists) {
       return next(new ValidationError("Slug already exists"));
     }
+
+    console.log("here");
 
     const newProduct = await prisma.products.create({
       data: {
@@ -246,6 +253,8 @@ export const createProduct = async (
         tags: Array.isArray(tags) ? tags : tags.split(","),
         brand,
         videoUrl,
+        starting_date: starting_date ? new Date(starting_date) : null,
+        ending_date: ending_date ? new Date(ending_date) : null,
         category,
         subCategory,
         colors: colors || [],
@@ -405,6 +414,65 @@ export const restoreProduct = async (
       success: true,
       message: "Product restored successfully",
       product: restoredProduct,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+//get All products (for Home page and product listing page) - This can be moved to a separate controller for product listing
+export const getAllProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const page = parseInt((req.query.page as string) || "1");
+    const limit = parseInt((req.query.limit as string) || "10");
+    const skip = (page - 1) * limit;
+    const type = req.query.type; // new-arrivals, featured, best-sellers, top-rated
+
+    const baseFilter = {
+      OR: [
+        {
+          starting_date: null,
+        },
+        {
+          ending_date: null,
+        },
+      ],
+    };
+
+    const orderBy: Prisma.productsOrderByWithRelationInput =
+      type === "latest"
+        ? { createdAt: "desc" as Prisma.SortOrder }
+        : { updatedAt: "desc" as Prisma.SortOrder };
+
+    const [products, total, top10Products] = await Promise.all([
+      prisma.products.findMany({
+        skip,
+        take: limit,
+        include: { images: true, shop: true },
+        where: baseFilter,
+        orderBy: {
+          updatedAt: "desc",
+        },
+      }),
+
+      prisma.products.count({ where: baseFilter }),
+      prisma.products.findMany({
+        take: 10,
+        where: baseFilter,
+        orderBy,
+      }),
+    ]);
+
+    res.status(200).json({
+      products,
+      total,
+      top10Products,
+      currentpage: page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     return next(error);
