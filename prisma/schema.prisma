@@ -21,6 +21,8 @@ model images{
   user     users?   @relation(fields: [userId], references: [id])
   shopId String? @unique @db.ObjectId
   shop shops?  @relation(fields: [shopId], references: [id])
+  productId String? @db.ObjectId
+  product products?  @relation(fields: [productId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -64,6 +66,7 @@ model shops {
   reviews shopReviews[]
   sellerId String @unique @db.ObjectId
   sellers sellers @relation(fields: [sellerId], references: [id])
+  products products[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -81,3 +84,61 @@ model sellers {
   updatedAt DateTime @updatedAt
 }
 
+model site_config{
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  categories String[]
+  subCatergories Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model discount_codes{
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  public_name String
+  discount_type String
+  discount_value Float
+  discount_code String @unique
+  sellerId String @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum productStatus {
+  Active
+  Pending
+  Draft
+}
+
+model products {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  slug String @unique
+  category String
+  subCategory String
+  short_description String
+  detailed_description String
+  images images[]
+  videoUrl String?
+  tags String[]
+  brand String?
+  colors String[]
+  sizes String[]
+  starting_date DateTime?
+  ending_date DateTime?
+  stock Int
+  sale_price Float
+  regular_price Float
+  ratings Float @default(5)
+  warranty String?
+  custom_specifications Json?
+  custom_properties Json?
+  isDeleted Boolean? @default(false)
+  cash_on_delivery String?
+  discount_codes String[] @db.ObjectId
+  status productStatus @default(Active) // pending, approved, rejected
+  shopId String @db.ObjectId
+  shop shops @relation(fields: [shopId], references: [id])
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
